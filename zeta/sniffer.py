@@ -217,6 +217,10 @@ class ZetaSerialMonitor(asyncio.Protocol):
         if zeta_yaml_path.exists():
             with zeta_yaml_path.open() as zeta_yaml:
                 self.zeta = Zeta(zeta_yaml)
+        else:
+            print("Sniffer cannot run, zeta.yaml not found."
+            " Is this a project directory?")
+            exit(1)
 
     def connection_made(self, transport):
         """Method called when an connection is made"""
