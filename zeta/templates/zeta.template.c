@@ -5,13 +5,13 @@
 
 #include "zeta.h"
 
-
 #include <drivers/flash.h>
 #include <fs/nvs.h>
 #include <logging/log.h>
 #include <storage/flash_map.h>
 #include <string.h>
 #include <zephyr.h>
+#include "zt_serial_ipc.h"
 #ifdef CONFIG_ZETA_FORWARDER
 #include <sys/base64.h>
 #endif
@@ -128,16 +128,6 @@ int zt_chan_pub(zt_channel_e id, zt_data_t *channel_data)
     if (id < ZT_CHANNEL_COUNT) {
         int error             = 0;
         zt_channel_t *channel = &__zt_channels[id];
-        zt_service_t **pub;
-
-        for (pub = channel->publishers; *pub != NULL; ++pub) {
-            if ((&(*pub)->thread) == k_current_get()) {
-                break;
-            }
-        }
-        ZT_CHECK_VAL(*pub, NULL, -EACCES,
-                     "The current thread has not the permission to change channel #%d!",
-                     id);
         ZT_CHECK_VAL(channel_data, NULL, -EFAULT,
                      "publish function was called with channel_value paramater as NULL!");
         ZT_CHECK(channel->read_only != 0, -EPERM, "The channel #%d is read only!", id);
@@ -147,7 +137,7 @@ int zt_chan_pub(zt_channel_e id, zt_data_t *channel_data)
                  "Could not publish the channel. Channel is busy");
 
 #ifdef CONFIG_ZETA_FORWARDER
-        zt_isc_packet_t packet = {.service_id = (*pub)->id,
+        zt_isc_packet_t packet = {.service_id = 0,
                                   .channel_id = channel->id,
                                   .op         = ZT_FWD_OP_PUBLISH,
                                   .size       = channel->size};
@@ -162,6 +152,12 @@ int zt_chan_pub(zt_channel_e id, zt_data_t *channel_data)
                 return 0;
             }
         }
+
+#if defined(CONFIG_ZETA_SERIAL_IPC)
+        if (k_current_get() == zt_serial_ipc_thread()) {
+            channel->flag.field.source_serial_isc = 1;
+        }
+#endif
         channel->flag.field.pend_callback = 1;
         memcpy(channel->data, channel_data->bytes.value, channel->size);
         error = k_msgq_put(&zt_channels_changed_msgq, (uint8_t *) &id, K_MSEC(500));
@@ -203,6 +199,14 @@ static void __zt_monitor_thread(void)
                     k_msgq_put(&zt_forwarder_msgq, &packet, K_NO_WAIT);
 #endif
                 }
+
+#if defined(CONFIG_ZETA_SERIAL_IPC)
+                if (__zt_channels[id].flag.field.source_serial_isc == 1) {
+                    __zt_channels[id].flag.field.source_serial_isc = 0;
+                } else {
+                    zt_serial_ipc_send_update_to_host(id);
+                }
+#endif
                 __zt_channels[id].flag.field.pend_callback = 0;
             } else {
                 LOG_INF("[ZT-THREAD]: Received pend_callback from a channel(#%d) "

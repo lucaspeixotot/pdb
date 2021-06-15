@@ -66,6 +66,15 @@ class ZetaMessage:
                                     parent=self,
                                     **sub_fields))
 
+    def __repr__(self):
+        message_repr = []
+        for k, v in self.__dict__.items():
+            if k not in ["parent", "size"]:
+                message_repr.append("\n" +
+                                    textwrap.indent(f"{k}: {v}", "    " *
+                                                    (self.level + 1)))
+        return f"Message({''.join(message_repr)});"
+
     def digest_type(self) -> None:
         """Digests the mtype and mounts the necessary data to the code
         generation.
@@ -76,11 +85,11 @@ class ZetaMessage:
         """
         if self.mtype == 'struct':
             self.mtype_obj = MsgType(
-                statement="struct"
+                statement="struct __attribute__((__packet__))"
                 if self.level > 0 else f"struct {self.name}",
                 separator="\n",
                 begin="{\n",
-                end="\n}",
+                end="\n} __attribute__((__packed__))",
                 sizable=f"[{self.size}]" if self.size > 0 else "")
             self.name = "" if self.level == 0 else " " + self.name
         elif self.mtype == 'union':

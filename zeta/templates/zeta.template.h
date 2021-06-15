@@ -326,6 +326,9 @@ union flag_data {
                                      subscribers must be called by zeta_thread */
         uint8_t on_changed : 1;      /**< Active represent that the service callback will
                                             be called on change and not on update */
+        uint8_t source_serial_isc : 1; /**< When active indicates the channel was changed
+                                          by the serial isc (some host process) instead of
+                                          a target service*/
     } field;
     uint8_t data; /**< Raw data */
 };

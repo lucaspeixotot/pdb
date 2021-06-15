@@ -43,14 +43,25 @@ RUN wget -q "https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.1
 RUN sh "zephyr-toolchain-x86_64-0.12.0-x86_64-linux-setup.run" --quiet -- -d ${ZEPHYR_SDK_INSTALL_DIR} -y
 RUN rm "zephyr-toolchain-x86_64-0.12.0-x86_64-linux-setup.run"
 
+RUN wget -q "https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.12.0/zephyr-toolchain-riscv64-0.12.0-x86_64-linux-setup.run"
+RUN sh "zephyr-toolchain-riscv64-0.12.0-x86_64-linux-setup.run" --quiet -- -d ${ZEPHYR_SDK_INSTALL_DIR} -y
+RUN rm "zephyr-toolchain-riscv64-0.12.0-x86_64-linux-setup.run"
+
+RUN sudo apt-get install -y --no-install-recommends policykit-1 libgtk2.0-0 screen uml-utilities gtk-sharp2 libc6-dev gcc python3 python3-pip libzmq5 mono-complete
+
+RUN wget -q "https://github.com/renode/renode/releases/download/v1.12.0/renode_1.12.0_amd64.deb"
+RUN sudo dpkg -i "renode_1.12.0_amd64.deb"
+RUN rm "renode_1.12.0_amd64.deb"
+
 # Getting zephyr and creating the environment 
 #TODO: Ponto de falha por sempre utilizar o requirements do master. Isso foi feito pois em versões antigas do zephyr os requirements estavam quebrados.
 # RUN git clone -q -b v2.3.0-rc1 --single-branch https://github.com/zephyrproject-rtos/zephyr ${ZEPHYR_BASE}
 RUN git clone -q https://github.com/zephyrproject-rtos/zephyr --branch v2.4.0 --single-branch ${ZEPHYR_BASE}
 
-RUN pip3 install wheel && \
-	pip3 install -r ${ZEPHYR_BASE}/scripts/requirements.txt && \
-	pip3 install sh
+RUN pip3 install wheel 
+RUN pip3 install sh 
+RUN pip3 install libscrc 
+RUN pip3 install -r ${ZEPHYR_BASE}/scripts/requirements-base.txt 
 RUN pip3 install --user -U west
 RUN export PATH=~/.local/bin:$PATH
 
@@ -63,6 +74,10 @@ RUN sudo locale-gen en_US.UTF-8
 ENV LANG en_US.UTF-8
 ENV LANGUAGE en_US:en
 ENV LC_ALL en_US.UTF-8
+
+# Zeta IPC host dependencies 
+RUN pip3 install pip install pyserial-asyncio
+RUN pip3 install pyzmq
 
 # Going to workdirectory
 WORKDIR ${APP}

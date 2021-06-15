@@ -22,4 +22,7 @@ config ZETA_FORWARDER
        bool "Enable the zeta forwarder thread"
        select BASE64
 
+config ZETA_SERIAL_IPC
+	   bool "Enable the  zeta IPC over serial"
+
 endif # ZETA

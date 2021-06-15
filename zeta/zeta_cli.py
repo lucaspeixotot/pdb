@@ -10,6 +10,7 @@ import textwrap
 import traceback
 from pathlib import Path
 from string import Template
+import asyncio
 
 from _io import TextIOWrapper
 
@@ -18,7 +19,7 @@ from .messages import ZetaMessage
 from .sniffer import ZetaSniffer
 from .zeta import Zeta
 from .zeta_errors import *
-
+from .zeta_isc import *
 # import yaml
 
 ZETA_MODULE_DIR = "."
@@ -215,7 +216,7 @@ class ZetaHeader(HeaderFileFactory):
                 messages_structs += ("\n" + message_code_factory.code())
                 messages_structs += textwrap.dedent(f'''
 
-                typedef struct {{
+                typedef struct  __attribute__((__packed__)) {{
                     size_t size;
                     {message_code_factory.mtype_obj.statement} value;
                 }} zt_data_{message.name.lower()}_t;\n''')
@@ -230,7 +231,7 @@ class ZetaHeader(HeaderFileFactory):
                     else "data", ", ..." if message_code_factory.size else ""))
                 messages_structs += textwrap.dedent(f'''
 
-                typedef struct {{
+                typedef struct  __attribute__((__packed__)) {{
                     size_t size;
                     {message_code_factory.mtype_obj.statement} value {"[{}]".format(message_code_factory.size) if message_code_factory.size else ""};
                 }} zt_data_{message.name.lower()}_t;\n''')
@@ -441,6 +442,7 @@ class ZetaCLI(object):
              f"  init - for creating the need files.\r\n"
              f"  gen - for generating the zeta code based on the zeta.yaml file.\r\n"
              f"  check -  for checking the needed configuration and initialization of zeta.\r\n"
+             f"  isc -  Runs zeta isc on the host and try to connect to the target.\r\n"
              f"  services - for generating the code-template based for services defined on the zeta.yaml file.\r\n"
              f"  version - for getting the current ZetaCLI version."))
         parser.add_argument('command', help='Subcommand to run')
@@ -543,7 +545,7 @@ class ZetaCLI(object):
             with cmakelists.open() as cmakelists_file:
                 for line, line_content in enumerate(
                         cmakelists_file.readlines()):
-                    # @todo: check it with an regex. Maybe the line is comment
+                    #@todo: check it with an regex. Maybe the line is comment
                     # out and it will not be true that it is setup ok
                     if "include(zeta.cmake NO_POLICY_SCOPE)" in line_content:
                         output["cmakelists_output"] = (
@@ -843,12 +845,44 @@ class ZetaCLI(object):
             description='Generate zeta files on the build folder',
             usage='zeta gen [-p] yamlfile')
         # prefixing the argument with -- means it's optional
-        parser.add_argument('serial_port',
-                            help='an integer for the accumulator')
+        parser.add_argument(
+            'serial_port',
+            help=
+            'The path to the serial on the system, /dev/ttyACM0 for example.')
         parser.add_argument('baudrate',
-                            help='sum the integers (default: find the max)')
+                            help='The UART baudrate, 115200 for example.')
         args = parser.parse_args(sys.argv[2:])
         ZetaSniffer().run(serial_port=args.serial_port, baudrate=args.baudrate)
+
+    def isc(self) -> int:
+        """Starts a high level ISC on the host. It takes all the yaml file
+        details to run the proper environment.
+
+        :returns: Exit code
+        :rtype: int
+
+        """
+        parser = argparse.ArgumentParser(
+            description='Run the isc on the host and try to connect with a'
+            'target instance',
+            usage='zeta isc ./zeta.yaml /dev/ttyUSB0 115200')
+        parser.add_argument(
+            'yamlfile',
+            help='Yaml that must be read in order to mount system.')
+        parser.add_argument(
+            'serial_port',
+            help=
+            'The path to the serial on the system, /dev/ttyACM0 for example.')
+        parser.add_argument('baudrate',
+                            help='The UART baudrate, 115200 for example.')
+        args = parser.parse_args(sys.argv[2:])
+        if os.path.exists(args.yamlfile):
+            with open(args.yamlfile, 'r') as f:
+                zeta = Zeta(f)
+                asyncio.run(isc_run(zeta, args.serial_port, args.baudrate))
+        else:
+            print("[ZETA]: Error. Zeta YAML file does not exist!")
+        return 0
 
 
 def run():

@@ -11,6 +11,7 @@ if(CONFIG_ZETA)
 
   zephyr_library()
   zephyr_library_sources(src/zeta.c)
+  zephyr_library_sources_ifdef(CONFIG_ZETA_SERIAL_IPC src/zt_serial_ipc.c src/zt_uart.c)
 
   zephyr_library_link_libraries(ZETA)
   target_link_libraries(ZETA INTERFACE zephyr_interface)

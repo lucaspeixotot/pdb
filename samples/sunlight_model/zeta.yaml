@@ -1,0 +1,43 @@
+Config:
+  sector_count: 4
+
+Channels:
+  - SUNLIGHT_LEVEL:
+      message: !ref SUNLIGHT_LEVEL_MSG
+  - LIGHT_STATUS:
+      message: !ref LIGHT_STATUS_MSG
+      on_changed: True
+        
+Services:
+  - CORE:
+      priority: 5
+      stack_size: 512
+      pub_channels:
+        - !ref LIGHT_STATUS
+      sub_channels:
+        - !ref SUNLIGHT_LEVEL
+  - LIGHT:
+      priority: 6
+      stack_size: 512
+      sub_channels:
+        - !ref LIGHT_STATUS
+Messages:
+  - FIRMWARE_VERSION_MSG:
+      mtype: struct
+      fields:
+        - major:
+            mtype: u8
+        - minor:
+            mtype: u8
+        - build:
+            mtype: u16
+  - SUNLIGHT_LEVEL_MSG:
+      mtype: struct
+      fields:
+        - level:
+            mtype: s16
+  - LIGHT_STATUS_MSG:
+      mtype: struct
+      fields:
+        - is_on:
+            mtype: u8
